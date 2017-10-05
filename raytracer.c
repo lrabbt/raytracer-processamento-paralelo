@@ -257,9 +257,9 @@ point urand[NRAN];
 int irand[NRAN];
 
 
-#define DIV 8
+#define DIV 20
 
-uchar raytracerLoop(vFLoop vl,int coordX,int coordY){
+uchar raytracerLoop(vFLoop vl,int coordY){
     int i,j,s;
     for(i = 0 ; i < vl.c.view.width ; i++)
     {
@@ -361,22 +361,26 @@ int main(int argc, char ** argv)
 
     vl.image = image;
     vl.c = c;
+
     int tamPieceLinear = c.view.width*c.view.height/DIV;
     uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
     uchar * aux = imagePiece;
+
     int fimPiece = 0;
     int inicioPiece;
+    int cont;
+
     for(int y = 0; y < DIV; y++)
     {
         int inicioPiece = fimPiece;
         int fimPiece = inicioPiece + tamPieceLinear;
-        printf("passouDAQ\n");
         
-        *(imagePiece) = raytracerLoop(vl,0,y*c.view.height/DIV);
-        
-        for(int i=inicioPiece; i<fimPiece;i++)
-            *(image + i) = *(imagePiece + i);
-        printf("passouDAQTBM\n");
+        *(imagePiece) = raytracerLoop(vl,y*c.view.height/DIV);
+        cont = 0;
+imagePiece = aux;
+        for(int i=inicioPiece; i<fimPiece;i++,cont++){
+            *(image + i) = *(imagePiece + cont);
+        }
 
         imagePiece = aux;
     }
