@@ -26,12 +26,15 @@
 #define HEI 800
 
 #define PI ((float) (355/113))
-#define FOV			((float) (PI/4))		/* field of view in rads (pi/4) */
-#define HALF_FOV		(FOV * 0.5)
-#define NRAN	1024
-#define MASK	(NRAN - 1)
-
+#define FOV         ((float) (PI/4))        /* field of view in rads (pi/4) */
+#define HALF_FOV        (FOV * 0.5)
+#define NRAN    1024
+#define MASK    (NRAN - 1)
+#define DIVX 4
+#define DIVY 2
 #define RAY_MAG 1000
+
+
 
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
@@ -149,10 +152,10 @@ struct p_light
 
 //struct g_grid
 //{
-//	point p0;
-//	point p1;
-//	int nx, ny, nz;
-//	int total;
+//  point p0;
+//  point p1;
+//  int nx, ny, nz;
+//  int total;
 //}typedef grid;
 
 enum object {
@@ -166,6 +169,14 @@ enum object {
 };
 
 typedef unsigned char uchar;
+
+struct varFromLoop{
+    int samples;
+    int s;
+    float rcp_samples;
+    uchar* image;
+    camera c;
+}typedef vFLoop;
 
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
@@ -246,6 +257,45 @@ point urand[NRAN];
 int irand[NRAN];
 
 
+#define DIV 8
+
+uchar raytracerLoop(vFLoop vl,int coordX,int coordY){
+    int i,j,s;
+    for(i = 0 ; i < vl.c.view.width ; i++)
+    {
+        for(j = coordY ; j < coordY+vl.c.view.height/DIV ; j++)
+        {
+            float r, g, b;
+            r = g = b = 0.0;
+            
+            for(s = 0; s< vl.samples; s++) {
+                ray rr = get_primary_ray(&(vl.c),i,j,s);    
+                color col = trace(vl.c,&rr,0);
+                r += col.r;
+                g += col.g;
+                b += col.b;
+            }
+            //printf("antes %f %f %f\n",r,g,b);
+            r = r * vl.rcp_samples;
+            g = g * vl.rcp_samples;
+            b = b * vl.rcp_samples;
+            //printf("depois %f %f %f\n",r,g,b);
+
+            //ray rr = get_primary_ray(&c, i, j, samples); 
+            //color clr = trace(c,&rr,0);
+
+            //red green blue color components
+            vl.image[ 3* (i * vl.c.view.height + j) + 0] = floatToIntColor(r);
+            vl.image[ 3* (i * vl.c.view.height + j) + 1] = floatToIntColor(g);
+            vl.image[ 3* (i * vl.c.view.height + j) + 2] = floatToIntColor(b);
+            
+            
+        }
+    }
+    printf("PASSO AQ DENTRO\n");
+    return *vl.image;
+}
+
 int main(int argc, char ** argv)
 {
     int i,j;
@@ -302,41 +352,38 @@ int main(int argc, char ** argv)
     for(i=0; i<NRAN; i++) urand[i].y = (double)rand() / RAND_MAX - 0.5;
     for(i=0; i<NRAN; i++) irand[i] = (int)(NRAN * ((double)rand() / RAND_MAX));
 
-    //---ray tracing loop---
+    //-------------------------------------------ray tracing loop-----------------------------------------------------------
+    vFLoop vl;
 
-    samples = 8;
-    s = 0;    
-    rcp_samples = 1.0 / (float)samples;
+    vl.samples = 8;
+    vl.s = 0;
+    vl.rcp_samples = 1.0 / (float)vl.samples;
 
-    for(i = 0 ; i < c.view.width ; i++)
+    vl.image = image;
+    vl.c = c;
+    int tamPieceLinear = c.view.width*c.view.height/DIV;
+    uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
+    uchar * aux = imagePiece;
+    int fimPiece = 0;
+    int inicioPiece;
+    for(int y = 0; y < DIV; y++)
     {
-        for(j = 0 ; j < c.view.height ; j++)
-        {
-            float r, g, b;
-            r = g = b = 0.0;
+        int inicioPiece = fimPiece;
+        int fimPiece = inicioPiece + tamPieceLinear;
+        printf("passouDAQ\n");
+        
+        *(imagePiece) = raytracerLoop(vl,0,y*c.view.height/DIV);
+        
+        for(int i=inicioPiece; i<fimPiece;i++)
+            *(image + i) = *(imagePiece + i);
+        printf("passouDAQTBM\n");
 
-            for(s=0; s<samples; s++) {
-                ray rr = get_primary_ray(&c,i,j,s);    
-                color col = trace(c,&rr,0);
-                r += col.r;
-                g += col.g;
-                b += col.b;
-            }
-
-            r = r * rcp_samples;
-            g = g * rcp_samples;
-            b = b * rcp_samples;
-
-            //ray rr = get_primary_ray(&c, i, j, samples); 
-            //color clr = trace(c,&rr,0);
-
-            //red green blue color components
-            image[ 3* (i * c.view.height + j) + 0] = floatToIntColor(r);
-            image[ 3* (i * c.view.height + j) + 1] = floatToIntColor(g);
-            image[ 3* (i * c.view.height + j) + 2] = floatToIntColor(b);
-        }
+        imagePiece = aux;
     }
+    
 
+    //*image = raytracerLoop(vl,0,c.view.height);
+   
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
     if(save_bmp("output_rt.bmp",&c,image) != 0)
@@ -367,7 +414,7 @@ ray get_primary_ray(camera *cam, int x, int y, int sample) {
     k.y = cam->lookat.y - cam->eye.y;
     k.z = cam->lookat.z - cam->eye.z;
 
-    normalize(&k);	
+    normalize(&k);  
     //NORMALIZE(k);
 
     crossProduct(&j,&k,&i);
@@ -485,14 +532,14 @@ void scalarMulVec(point *a,float sc)
 
 
 //int inside_grid(grid *gr, point * p) {
-//	if ((p->x > gr->p0.x) && (p->x < gr->p1.x)) {
-//		if ((p->y > gr->p0.y) && (p->y < gr->p1.y)) {
-//			if ((p->z > gr->p0.z) && (p->z < gr->p1.z)) {
-//				return TRUE;
-//			}
-//		}
-//	}
-//	return FALSE;
+//  if ((p->x > gr->p0.x) && (p->x < gr->p1.x)) {
+//      if ((p->y > gr->p0.y) && (p->y < gr->p1.y)) {
+//          if ((p->z > gr->p0.z) && (p->z < gr->p1.z)) {
+//              return TRUE;
+//          }
+//      }
+//  }
+//  return FALSE;
 //}
 
 
@@ -564,7 +611,7 @@ void setupCamera(camera *c)
     normalize(&c->u);
 
     crossProduct(&c->u,&c->w,&c->v);
-    normalize(&c->v);	
+    normalize(&c->v);   
 
     //printf("u: %f %f %f\n",c->u.x,c->u.y,c->u.z);
     //printf("v: %f %f %f\n",c->v.x,c->v.y,c->v.z);
@@ -702,43 +749,43 @@ float m_min(float a, float b)
 //        float b;
 //        float c;
 //
-//	point rd;
+//  point rd;
 //
-//	rd.x = r->d.x - r->o.x;
-//	rd.y = r->d.y - r->o.y;
-//	rd.z = r->d.z - r->o.z;
-//	normalize(&rd);
+//  rd.x = r->d.x - r->o.x;
+//  rd.y = r->d.y - r->o.y;
+//  rd.z = r->d.z - r->o.z;
+//  normalize(&rd);
 //
-//	a = 1.0f/rd.x;
-//	b = 1.0f/rd.y;
-//	c = 1.0f/rd.z;
+//  a = 1.0f/rd.x;
+//  b = 1.0f/rd.y;
+//  c = 1.0f/rd.z;
 //
-//	if (a >= 0) {
-//		t_min->x = (gr->p0.x - r->o.x)*a;
-//		t_max->x = (gr->p1.x - r->o.x)*a;
-//	} else {
-//		t_min->x = (gr->p1.x - r->o.x)*a;
-//		t_max->x = (gr->p0.x - r->o.x)*a;
-//	}
+//  if (a >= 0) {
+//      t_min->x = (gr->p0.x - r->o.x)*a;
+//      t_max->x = (gr->p1.x - r->o.x)*a;
+//  } else {
+//      t_min->x = (gr->p1.x - r->o.x)*a;
+//      t_max->x = (gr->p0.x - r->o.x)*a;
+//  }
 //
-//	if (b >= 0) {
-//		t_min->y = (gr->p0.y - r->o.y)*b;
-//		t_max->y = (gr->p1.y - r->o.y)*b;
-//	} else {
-//		t_min->y = (gr->p1.y - r->o.y)*b;
-//		t_max->y = (gr->p0.y - r->o.y)*b;
-//	}
+//  if (b >= 0) {
+//      t_min->y = (gr->p0.y - r->o.y)*b;
+//      t_max->y = (gr->p1.y - r->o.y)*b;
+//  } else {
+//      t_min->y = (gr->p1.y - r->o.y)*b;
+//      t_max->y = (gr->p0.y - r->o.y)*b;
+//  }
 //
-//	if (c >= 0) {
-//		t_min->z = (gr->p0.z - r->o.z)*c;
-//		t_max->z = (gr->p1.z - r->o.z)*c;
-//	} else {
-//		t_min->z = (gr->p1.z - r->o.z)*c;
-//		t_max->z = (gr->p0.z - r->o.z)*c;
-//	}
+//  if (c >= 0) {
+//      t_min->z = (gr->p0.z - r->o.z)*c;
+//      t_max->z = (gr->p1.z - r->o.z)*c;
+//  } else {
+//      t_min->z = (gr->p1.z - r->o.z)*c;
+//      t_max->z = (gr->p0.z - r->o.z)*c;
+//  }
 //
-//	*t0 = m_max(m_max(t_min->x, t_min->y), t_min->z);
-//	*t1 = m_min(m_min(t_max->x, t_max->y), t_max->z);
+//  *t0 = m_max(m_max(t_min->x, t_min->y), t_min->z);
+//  *t1 = m_min(m_min(t_max->x, t_max->y), t_max->z);
 //}
 
 //-----------------------------------------------------------------------------------------
@@ -1028,7 +1075,7 @@ color shade(camera cam,point *incid ,enum object obj, int index, point *p, int i
     point reflexao;
     point normal_aux;// = normal;
     point normal_aux2;// = normal;
-    point light_reflection;	
+    point light_reflection; 
 
     if(obj == SPHERE)
     {
@@ -1176,7 +1223,7 @@ color shade(camera cam,point *incid ,enum object obj, int index, point *p, int i
                     {
                         r = r + data[index].ks * pow(dot2,data[index].e) * (lights[il].c.r * lights[il].ls) *dot;
                         g = g + data[index].ks * pow(dot2,data[index].e) * (lights[il].c.r * lights[il].ls) *dot;
-                        b = b + data[index].ks * pow(dot2,data[index].e) * (lights[il].c.r * lights[il].ls) *dot;					
+                        b = b + data[index].ks * pow(dot2,data[index].e) * (lights[il].c.r * lights[il].ls) *dot;                   
                     }
                     else if(obj == PLANE)
                     {
@@ -1340,14 +1387,14 @@ int intersectOpenCylinder(open_cylinder *cylinder, ray *r, float *t_res)
     dy = dy/temp;
     dz = dz/temp;
 
-    a = dx * dx + dz * dz;  	
-    b = 2.0f * (ox * dx + oz * dz);					
+    a = dx * dx + dz * dz;      
+    b = 2.0f * (ox * dx + oz * dz);                 
     c = ox * ox + oz * oz - cylinder->r * cylinder->r;
     disc = b * b - 4.0f * a * c ;
 
     if (disc < 0.0f)
         return FALSE;
-    else {	
+    else {  
         e = sqrt(disc);
         denom = 2.0f * a;
         t = (-b - e) / denom;    // smaller root
@@ -1361,13 +1408,13 @@ int intersectOpenCylinder(open_cylinder *cylinder, ray *r, float *t_res)
 
                 // test for hitting from inside
                 //if (-ray.d * sr.normal < 0.0)
-                //	sr.normal = -sr.normal;
+                //  sr.normal = -sr.normal;
                 return TRUE;
             }
         } 
 
         t = (-b + e) / denom;    // larger root
-        *t_res = t;	
+        *t_res = t; 
 
         if (t > 0) {
             yhit = oy + t * dy;
@@ -1377,7 +1424,7 @@ int intersectOpenCylinder(open_cylinder *cylinder, ray *r, float *t_res)
                 *t_res = t;
                 // test for hitting inside surface
                 //if (-ray.d * sr.normal < 0.0)
-                //	sr.normal = -sr.normal;
+                //  sr.normal = -sr.normal;
 
                 return TRUE;
             }
@@ -1496,7 +1543,7 @@ void generateScene()
         data[i].minBB.y = data[i].center.y - data[i].r;
         data[i].minBB.z = data[i].center.z - data[i].r;
 
-        data[i].kd = 0.5f;	
+        data[i].kd = 0.5f;  
         data[i].ks = 0.25f;
     }
 
@@ -1625,7 +1672,7 @@ void generateRandomSpheres()
 
         //printf("data[%d].kf = %f\n",h,data[h].kf);
         data[i].kf = 1.0f;
-        data[i].kd = 0.5f;	
+        data[i].kd = 0.5f;  
         data[i].cr = 1.0f;
         data[i].e = 100;
         data[i].ks = 0.25f;
@@ -1835,3 +1882,5 @@ float checkerTexture(float u, float v)
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
+
+
