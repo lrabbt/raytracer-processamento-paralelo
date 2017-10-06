@@ -266,7 +266,7 @@ int irand[NRAN];
 
 #define DIV 20
 
-void raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
+void raytracerLoopref(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
     int i,j,s;
     for(i = inicio_x ; i < fim_x ; i++)
     {
@@ -299,6 +299,21 @@ void raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y)
     printf("PASSO AQ DENTRO\n");
 }
 
+uchar *raytracerLoop(vFLoop vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
+    vFLoop vltemp;
+
+    vltemp.samples = vl.samples;
+    vltemp.s = vl.s;
+    vltemp.rcp_samples = vl.rcp_samples;
+
+    vltemp.image = vl.image;
+    vltemp.c = vl.c;
+
+    raytracerLoopref(&vltemp, inicio_x, inicio_y, fim_x, fim_y);
+
+    return vltemp.image;
+}
+
 void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
     int width = vl->c.view.width;
     int height = vl->c.view.height;
@@ -327,7 +342,7 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
 
     //Forkar aqui!
     for(int i = 0; i < num_retangulos; i++)
-        raytracerLoop(vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
+        raytracerLoopref(vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
 }
 
 void divide(int *divisoes, int num_divisoes){
@@ -336,13 +351,15 @@ void divide(int *divisoes, int num_divisoes){
     int num_divisoes_y = 1;
     for(int i = 1; i <= num_divisoes; i++){
         if(num_divisoes % i == 0){
-            int diferenca_atual = i - num_divisoes/i;
+            int diferenca_atual = abs(i - num_divisoes/i);
             if(diferenca_atual < diferenca){
                 num_divisoes_x = i;
                 num_divisoes_y = num_divisoes/i;
+                diferenca = diferenca_atual;
             }
         }
     }
+
     divisoes[0] = num_divisoes_x;
     divisoes[1] = num_divisoes_y;
 }
