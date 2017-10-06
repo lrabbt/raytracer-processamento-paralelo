@@ -176,7 +176,14 @@ struct varFromLoop{
     float rcp_samples;
     uchar* image;
     camera c;
-}typedef vFLoop;
+} typedef vFLoop;
+
+struct retangulo {
+    int inicio_x;
+    int inicio_y;
+    int fim_x;
+    int fim_y;
+} typedef retangulo;
 
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
@@ -259,41 +266,67 @@ int irand[NRAN];
 
 #define DIV 20
 
-uchar raytracerLoop(vFLoop vl,int coordY){
+uchar raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
     int i,j,s;
-    for(i = 0 ; i < vl.c.view.width ; i++)
+    for(i = inicio_x ; i < fim_x ; i++)
     {
-        for(j = coordY ; j < coordY+vl.c.view.height/DIV ; j++)
+        for(j = inicio_y ; j < fim_y ; j++)
         {
             float r, g, b;
             r = g = b = 0.0;
             
-            for(s = 0; s< vl.samples; s++) {
-                ray rr = get_primary_ray(&(vl.c),i,j,s);    
-                color col = trace(vl.c,&rr,0);
+            for(s = 0; s < vl->samples; s++) {
+                ray rr = get_primary_ray(&(vl->c), i, j, s);    
+                color col = trace(vl->c,&rr,0);
                 r += col.r;
                 g += col.g;
                 b += col.b;
             }
-            //printf("antes %f %f %f\n",r,g,b);
-            r = r * vl.rcp_samples;
-            g = g * vl.rcp_samples;
-            b = b * vl.rcp_samples;
-            //printf("depois %f %f %f\n",r,g,b);
+
+            r = r * vl->rcp_samples;
+            g = g * vl->rcp_samples;
+            b = b * vl->rcp_samples;
 
             //ray rr = get_primary_ray(&c, i, j, samples); 
             //color clr = trace(c,&rr,0);
 
             //red green blue color components
-            vl.image[ 3* (i * vl.c.view.height + j) + 0] = floatToIntColor(r);
-            vl.image[ 3* (i * vl.c.view.height + j) + 1] = floatToIntColor(g);
-            vl.image[ 3* (i * vl.c.view.height + j) + 2] = floatToIntColor(b);
-            
-            
+            vl->image[ 3* (i * vl->c.view.height + j) + 0] = floatToIntColor(r);
+            vl->image[ 3* (i * vl->c.view.height + j) + 1] = floatToIntColor(g);
+            vl->image[ 3* (i * vl->c.view.height + j) + 2] = floatToIntColor(b);            
         }
     }
     printf("PASSO AQ DENTRO\n");
-    return *vl.image;
+}
+
+void comecaraytracerloop(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
+    int width = vl->c.view.width;
+    int height = vl->c.view.height;
+
+    int divisao_horizontal = width/num_divisoes_x;
+    int divisao_vertical = height/num_divisoes_y;
+
+    int num_retangulos = num_divisoes_x * num_divisoes_y;
+    retangulo *ret = (retangulo *) malloc(num_retangulos * sizeof(retangulo));
+
+    for(int i = 0; i < num_divisoes_x; i++){
+        for(int j = 0; j < num_divisoes_y; j++){
+            ret[i * num_divisoes_y + j].inicio_x = i * divisao_horizontal;
+            ret[i * num_divisoes_y + j].inicio_y = j * divisao_vertical;
+
+            if(i == num_divisoes_x - 1)
+                ret[i * num_divisoes_y + j].fim_x = width - 1;
+            else
+                ret[i * num_divisoes_y + j].fim_x = ((i + 1) * divisao_horizontal);
+            if(j == num_divisoes_y - 1)
+                ret[i * num_divisoes_y + j].fim_y = height - 1;
+            else
+                ret[i * num_divisoes_y + j].fim_y = ((j + 1) * divisao_vertical);
+        } 
+    }
+
+    for(int i = 0; i < num_retangulos; i++)
+        raytracerLoop(vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
 }
 
 int main(int argc, char ** argv)
@@ -362,35 +395,37 @@ int main(int argc, char ** argv)
     vl.image = image;
     vl.c = c;
 
-    int tamPieceLinear = c.view.width*c.view.height/DIV;
-    uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
-    uchar * aux = imagePiece;
+    comecaraytracerloop(&vl, 2, 2);
 
-    int fimPiece = 0;
-    int inicioPiece;
-    int cont;
+    // int tamPieceLinear = c.view.width*c.view.height/DIV;
+    // uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
+    // uchar * aux = imagePiece;
 
-    for(int y = 0; y < DIV; y++)
-    {
-        int inicioPiece = fimPiece;
-        int fimPiece = inicioPiece + tamPieceLinear;
+    // int fimPiece = 0;
+    // int inicioPiece;
+    // int cont;
+
+    // for(int y = 0; y < DIV; y++)
+    // {
+    //     int inicioPiece = fimPiece;
+    //     int fimPiece = inicioPiece + tamPieceLinear;
         
-        *(imagePiece) = raytracerLoop(vl,y*c.view.height/DIV);
-        cont = 0;
-imagePiece = aux;
-        for(int i=inicioPiece; i<fimPiece;i++,cont++){
-            *(image + i) = *(imagePiece + cont);
-        }
+    //     *(imagePiece) = raytracerLoop(vl,y*c.view.height/DIV);
+    //     cont = 0;
+    //     imagePiece = aux;
+    //     for(int i=inicioPiece; i<fimPiece;i++,cont++){
+    //         *(image + i) = *(imagePiece + cont);
+    //     }
 
-        imagePiece = aux;
-    }
+    //     imagePiece = aux;
+    // }
     
 
     //*image = raytracerLoop(vl,0,c.view.height);
    
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
-    if(save_bmp("output_rt.bmp",&c,image) != 0)
+    if(save_bmp("output_rt.bmp",&c,vl.image) != 0)
     {
         fprintf(stderr,"Cannot write image 'output.bmp'.\n");
         return 0;
@@ -1886,5 +1921,3 @@ float checkerTexture(float u, float v)
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
-
-
