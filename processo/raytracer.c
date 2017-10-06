@@ -269,6 +269,43 @@ int irand[NRAN];
 
 #define DIV 20
 
+int save_uchar(char *filename, uchar* image){
+    FILE *tempfile = fopen(filename, "r+");
+
+    if(tempfile == NULL){
+        tempfile = fopen(filename, "w+");
+        if(tempfile == NULL){
+            printf("Falha ao criar arquivo temporario.\n");
+            exit(0);
+        }
+        for(int i = 0; i < sizeof(image)/sizeof(uchar); i++){
+            uchar temp = 0;
+            fwrite(&temp, sizeof(uchar), 1, tempfile);
+        }
+    }
+
+    for(int i = 0; i < sizeof(image)/sizeof(uchar); i++){
+
+        if(image[i] != (uchar) 0){
+            fwrite(&image[i], sizeof(uchar), 1, tempfile);
+        } else {
+            fseek(tempfile, sizeof(uchar), SEEK_CUR);
+        }
+    }
+
+    fclose(tempfile);
+}
+
+void read_image_file(uchar** image, char* filename){
+    FILE *file = fopen(filename, "r");
+
+    for(int i = 0; i < sizeof(*image)/sizeof(uchar); i++){
+        fread(&((*image)[i]), sizeof(uchar), 1, file);
+    }
+
+    fclose(file);
+}
+
 void raytracerLoopref(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
     int i,j,s;
     for(i = inicio_x ; i < fim_x ; i++)
@@ -314,6 +351,16 @@ uchar *raytracerLoop(vFLoop vl, int inicio_x, int inicio_y, int fim_x, int fim_y
 
     raytracerLoopref(&vltemp, inicio_x, inicio_y, fim_x, fim_y);
 
+    for(int i = 0; i < vl.c.view.width; i++){
+        for(int j = 0; j < vl.c.view.height; j++){
+            if(i < inicio_x || i > fim_x || j < inicio_y || j > fim_y){
+                vltemp.image[ 3* (i * vl.c.view.height + j) + 0] = (uchar) 0;
+                vltemp.image[ 3* (i * vl.c.view.height + j) + 1] = (uchar) 0;
+                vltemp.image[ 3* (i * vl.c.view.height + j) + 2] = (uchar) 0;
+            }
+        }
+    }
+
     return vltemp.image;
 }
 
@@ -326,6 +373,8 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
 
     int num_retangulos = num_divisoes_x * num_divisoes_y;
     retangulo *ret = (retangulo *) malloc(num_retangulos * sizeof(retangulo));
+
+    char filename[50] = "output_rt.tmp";
 
     for(int i = 0; i < num_divisoes_x; i++){
         for(int j = 0; j < num_divisoes_y; j++){
@@ -355,36 +404,28 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
             printf("Criacao da processo %d\n", i);
             imagetemp = raytracerLoop(*vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
 
-            char filename[50] = "output_rt";
-            char filenumber[6];
-            sprintf(filenumber, "%d", i);
-            
-            printf("Ok %d\n", i);
-            strcat(filename, filenumber);
-            strcat(filename, ".bmp");
+            save_uchar(filename, imagetemp);
 
-            printf("%s\n", filename);
+            // if(save_bmp(filename, &(vl->c), imagetemp) != 0)
+            // {
+            //     fprintf(stderr,"Cannot write image 'output.bmp'.\n");
+            //     exit(0);
+            // }
 
-            if(save_bmp(filename, &(vl->c), imagetemp) != 0)
-            {
-                fprintf(stderr,"Cannot write image 'output.bmp'.\n");
-                exit(0);
-            }
-
-            for(int j = 3 * ret[i].inicio_x; j < 3 * ret[i].fim_x; j++){
-                for(int k = 3 * ret[i].inicio_y; k < 3 * ret[i].fim_y; k++){
-                    vl->image[ 3* (j * vl->c.view.height + k) + 0] = imagetemp[ 3* (j * vl->c.view.height + k) + 0];
-                    vl->image[ 3* (j * vl->c.view.height + k) + 1] = imagetemp[ 3* (j * vl->c.view.height + k) + 1];
-                    vl->image[ 3* (j * vl->c.view.height + k) + 2] = imagetemp[ 3* (j * vl->c.view.height + k) + 2];
-                }
-            }
+            // for(int j = 3 * ret[i].inicio_x; j < 3 * ret[i].fim_x; j++){
+            //     for(int k = 3 * ret[i].inicio_y; k < 3 * ret[i].fim_y; k++){
+            //         vl->image[ 3* (j * vl->c.view.height + k) + 0] = imagetemp[ 3* (j * vl->c.view.height + k) + 0];
+            //         vl->image[ 3* (j * vl->c.view.height + k) + 1] = imagetemp[ 3* (j * vl->c.view.height + k) + 1];
+            //         vl->image[ 3* (j * vl->c.view.height + k) + 2] = imagetemp[ 3* (j * vl->c.view.height + k) + 2];
+            //     }
+            // }
             exit(1);
         }
     }
 
     while(wait(NULL) > 0);
 
-
+    read_image_file(&(vl->image), filename);
 }
 
 void divide(int *divisoes, int num_divisoes){
@@ -510,11 +551,11 @@ int main(int argc, char ** argv)
    
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
-    // if(save_bmp("output_rt.bmp", &(vl.c), vl.image) != 0)
-    // {
-    //     fprintf(stderr,"Cannot write image 'output.bmp'.\n");
-    //     return 0;
-    // }
+    if(save_bmp("output_rt.bmp", &(vl.c), vl.image) != 0)
+    {
+        fprintf(stderr,"Cannot write image 'output.bmp'.\n");
+        return 0;
+    }
 
     //---freeing data---
     //free(rays);
