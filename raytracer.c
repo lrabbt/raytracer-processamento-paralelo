@@ -325,11 +325,12 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
         } 
     }
 
+    //Forkar aqui!
     for(int i = 0; i < num_retangulos; i++)
         raytracerLoop(vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
 }
 
-void comecaraytracerloop(vFLoop *vl, int num_divisoes){
+void divide(int *divisoes, int num_divisoes){
     int diferenca = num_divisoes + 1;
     int num_divisoes_x = num_divisoes_x;
     int num_divisoes_y = 1;
@@ -342,7 +343,8 @@ void comecaraytracerloop(vFLoop *vl, int num_divisoes){
             }
         }
     }
-    comecaraytracerloopcoordenadas(vl, num_divisoes_x, num_divisoes_y);
+    divisoes[0] = num_divisoes_x;
+    divisoes[1] = num_divisoes_y;
 }
 
 int main(int argc, char ** argv)
@@ -411,12 +413,15 @@ int main(int argc, char ** argv)
     vl.image = image;
     vl.c = c;
 
+    int* divisoes = (int *) malloc(2 * sizeof(int));
     //Loop aqui
     if(argc == 2){
-        comecaraytracerloop(&vl, atoi(argv[1]));
+        divide(divisoes, atoi(argv[1]));
     } else {
-        comecaraytracerloop(&vl, DIV);
+        divide(divisoes, DIV);
     }
+
+    comecaraytracerloopcoordenadas(&vl, divisoes[0], divisoes[1]);
 
     // int tamPieceLinear = c.view.width*c.view.height/DIV;
     // uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
