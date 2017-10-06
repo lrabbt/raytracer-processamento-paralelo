@@ -3,6 +3,9 @@
 #include <math.h>
 #include <string.h>
 #include <float.h>
+#include <sys/types.h>
+#include <sys/wait.h> 
+#include <unistd.h>
 
 #define TRUE (0==0)
 #define FALSE (0==1)
@@ -266,7 +269,7 @@ int irand[NRAN];
 
 #define DIV 20
 
-void raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
+void raytracerLoopref(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
     int i,j,s;
     for(i = inicio_x ; i < fim_x ; i++)
     {
@@ -299,6 +302,21 @@ void raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y)
     printf("PASSO AQ DENTRO\n");
 }
 
+uchar *raytracerLoop(vFLoop vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
+    vFLoop vltemp;
+
+    vltemp.samples = vl.samples;
+    vltemp.s = vl.s;
+    vltemp.rcp_samples = vl.rcp_samples;
+
+    vltemp.image = vl.image;
+    vltemp.c = vl.c;
+
+    raytracerLoopref(&vltemp, inicio_x, inicio_y, fim_x, fim_y);
+
+    return vltemp.image;
+}
+
 void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
     int width = vl->c.view.width;
     int height = vl->c.view.height;
@@ -326,8 +344,47 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
     }
 
     //Forkar aqui!
-    for(int i = 0; i < num_retangulos; i++)
-        raytracerLoop(vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
+    pid_t *pid = (pid_t *) malloc(num_retangulos * sizeof(pid_t));
+    uchar *imagetemp;
+    for(int i = 0; i < num_retangulos; i++){
+        pid[i] = fork();
+        if(pid[i] < 0){
+            fprintf(stderr, "Erro na criacao da thread %d\n", i);
+            exit(1);
+        } else if(pid[i] == 0) {
+            printf("Criacao da processo %d\n", i);
+            imagetemp = raytracerLoop(*vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
+
+            char filename[50] = "output_rt";
+            char filenumber[6];
+            sprintf(filenumber, "%d", i);
+            
+            printf("Ok %d\n", i);
+            strcat(filename, filenumber);
+            strcat(filename, ".bmp");
+
+            printf("%s\n", filename);
+
+            if(save_bmp(filename, &(vl->c), imagetemp) != 0)
+            {
+                fprintf(stderr,"Cannot write image 'output.bmp'.\n");
+                exit(0);
+            }
+
+            for(int j = 3 * ret[i].inicio_x; j < 3 * ret[i].fim_x; j++){
+                for(int k = 3 * ret[i].inicio_y; k < 3 * ret[i].fim_y; k++){
+                    vl->image[ 3* (j * vl->c.view.height + k) + 0] = imagetemp[ 3* (j * vl->c.view.height + k) + 0];
+                    vl->image[ 3* (j * vl->c.view.height + k) + 1] = imagetemp[ 3* (j * vl->c.view.height + k) + 1];
+                    vl->image[ 3* (j * vl->c.view.height + k) + 2] = imagetemp[ 3* (j * vl->c.view.height + k) + 2];
+                }
+            }
+            exit(1);
+        }
+    }
+
+    while(wait(NULL) > 0);
+
+
 }
 
 void divide(int *divisoes, int num_divisoes){
@@ -336,13 +393,15 @@ void divide(int *divisoes, int num_divisoes){
     int num_divisoes_y = 1;
     for(int i = 1; i <= num_divisoes; i++){
         if(num_divisoes % i == 0){
-            int diferenca_atual = i - num_divisoes/i;
+            int diferenca_atual = abs(i - num_divisoes/i);
             if(diferenca_atual < diferenca){
                 num_divisoes_x = i;
                 num_divisoes_y = num_divisoes/i;
+                diferenca = diferenca_atual;
             }
         }
     }
+
     divisoes[0] = num_divisoes_x;
     divisoes[1] = num_divisoes_y;
 }
@@ -414,7 +473,7 @@ int main(int argc, char ** argv)
     vl.c = c;
 
     int* divisoes = (int *) malloc(2 * sizeof(int));
-    //Loop aqui
+    
     if(argc == 2){
         divide(divisoes, atoi(argv[1]));
     } else {
@@ -451,11 +510,11 @@ int main(int argc, char ** argv)
    
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
-    if(save_bmp("output_rt.bmp",&c,vl.image) != 0)
-    {
-        fprintf(stderr,"Cannot write image 'output.bmp'.\n");
-        return 0;
-    }
+    // if(save_bmp("output_rt.bmp", &(vl.c), vl.image) != 0)
+    // {
+    //     fprintf(stderr,"Cannot write image 'output.bmp'.\n");
+    //     return 0;
+    // }
 
     //---freeing data---
     //free(rays);
