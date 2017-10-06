@@ -278,10 +278,11 @@ int save_uchar(char *filename, uchar* image){
             printf("Falha ao criar arquivo temporario.\n");
             exit(0);
         }
-        for(int i = 0; i < sizeof(image)/sizeof(uchar); i++){
-            uchar temp = 0;
-            fwrite(&temp, sizeof(uchar), 1, tempfile);
-        }
+    }
+
+    for(int i = 0; i < sizeof(image)/sizeof(uchar); i++){
+        uchar temp = 0;
+        fwrite(&temp, sizeof(uchar), 1, tempfile);
     }
 
     for(int i = 0; i < sizeof(image)/sizeof(uchar); i++){
@@ -374,7 +375,8 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
     int num_retangulos = num_divisoes_x * num_divisoes_y;
     retangulo *ret = (retangulo *) malloc(num_retangulos * sizeof(retangulo));
 
-    char filename[50] = "output_rt.tmp";
+    char filenamebase[50] = "output_rt";
+    char filenameext[5] = ".tmp";
 
     for(int i = 0; i < num_divisoes_x; i++){
         for(int j = 0; j < num_divisoes_y; j++){
@@ -404,6 +406,14 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
             printf("Criacao da processo %d\n", i);
             imagetemp = raytracerLoop(*vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
 
+            char filename[50] = "";
+            char filenum[5];
+
+            sprintf(filenum, "%d", i);
+            strcpy(filename, filenamebase);
+            strcat(filename, filenum);
+            strcat(filename, filenameext);
+
             save_uchar(filename, imagetemp);
 
             // if(save_bmp(filename, &(vl->c), imagetemp) != 0)
@@ -425,7 +435,17 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
 
     while(wait(NULL) > 0);
 
-    read_image_file(&(vl->image), filename);
+    for(int i = 0; i < num_retangulos; i++){
+        char filename[50] = "";
+        char filenum[5];
+
+        sprintf(filenum, "%d", i);
+        strcpy(filename, filenamebase);
+        strcat(filename, filenum);
+        strcat(filename, filenameext);
+
+        read_image_file(&(vl->image), filename);
+    }
 }
 
 void divide(int *divisoes, int num_divisoes){
