@@ -266,7 +266,7 @@ int irand[NRAN];
 
 #define DIV 20
 
-uchar raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
+void raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
     int i,j,s;
     for(i = inicio_x ; i < fim_x ; i++)
     {
@@ -299,7 +299,7 @@ uchar raytracerLoop(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y
     printf("PASSO AQ DENTRO\n");
 }
 
-void comecaraytracerloop(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
+void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
     int width = vl->c.view.width;
     int height = vl->c.view.height;
 
@@ -315,11 +315,11 @@ void comecaraytracerloop(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
             ret[i * num_divisoes_y + j].inicio_y = j * divisao_vertical;
 
             if(i == num_divisoes_x - 1)
-                ret[i * num_divisoes_y + j].fim_x = width - 1;
+                ret[i * num_divisoes_y + j].fim_x = width;
             else
                 ret[i * num_divisoes_y + j].fim_x = ((i + 1) * divisao_horizontal);
             if(j == num_divisoes_y - 1)
-                ret[i * num_divisoes_y + j].fim_y = height - 1;
+                ret[i * num_divisoes_y + j].fim_y = height;
             else
                 ret[i * num_divisoes_y + j].fim_y = ((j + 1) * divisao_vertical);
         } 
@@ -327,6 +327,22 @@ void comecaraytracerloop(vFLoop *vl, int num_divisoes_x, int num_divisoes_y){
 
     for(int i = 0; i < num_retangulos; i++)
         raytracerLoop(vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
+}
+
+void comecaraytracerloop(vFLoop *vl, int num_divisoes){
+    int diferenca = num_divisoes + 1;
+    int num_divisoes_x = num_divisoes_x;
+    int num_divisoes_y = 1;
+    for(int i = 1; i <= num_divisoes; i++){
+        if(num_divisoes % i == 0){
+            int diferenca_atual = i - num_divisoes/i;
+            if(diferenca_atual < diferenca){
+                num_divisoes_x = i;
+                num_divisoes_y = num_divisoes/i;
+            }
+        }
+    }
+    comecaraytracerloopcoordenadas(vl, num_divisoes_x, num_divisoes_y);
 }
 
 int main(int argc, char ** argv)
@@ -395,7 +411,12 @@ int main(int argc, char ** argv)
     vl.image = image;
     vl.c = c;
 
-    comecaraytracerloop(&vl, 2, 2);
+    //Loop aqui
+    if(argc == 2){
+        comecaraytracerloop(&vl, atoi(argv[1]));
+    } else {
+        comecaraytracerloop(&vl, DIV);
+    }
 
     // int tamPieceLinear = c.view.width*c.view.height/DIV;
     // uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
