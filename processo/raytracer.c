@@ -5,6 +5,8 @@
 #include <float.h>
 #include <sys/types.h>
 #include <sys/wait.h> 
+#include <sys/ipc.h> 
+#include <sys/shm.h> 
 #include <unistd.h>
 
 #define TRUE (0==0)
@@ -269,51 +271,6 @@ int irand[NRAN];
 
 #define DIV 20
 
-int save_uchar(char *filename, uchar** image, unsigned int tamimage){
-    FILE *tempfile = fopen(filename, "rb+");
-
-    if(tempfile == NULL){
-        tempfile = fopen(filename, "wb+");
-        if(tempfile == NULL){
-            printf("Falha ao criar arquivo temporario.\n");
-            exit(0);
-        }
-    }
-
-    rewind(tempfile);
-
-    for(int i = 0; i < tamimage; i++){
-        uchar temp = 0;
-        fwrite(&temp, sizeof(uchar), 1, tempfile);
-    }
-
-    rewind(tempfile);
-
-    for(int i = 0; i < tamimage; i++){
-
-        if((*image)[i] != 0){
-            fwrite(&((*image)[i]), sizeof(uchar), 1, tempfile);
-        } else {
-            fseek(tempfile, sizeof(uchar), SEEK_CUR);
-        }
-    }
-
-    fclose(tempfile);
-}
-
-void read_image_file(uchar** image, unsigned int tamimage, char* filename){
-    FILE *file = fopen(filename, "rb");
-    uchar charatual;
-
-    for(int i = 0; i < tamimage; i++){
-        fread(&charatual, sizeof(uchar), 1, file);
-        if(charatual != 0)
-        	(*image)[i] = charatual;
-    }
-
-    fclose(file);
-}
-
 void raytracerLoopref(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
     int i,j,s;
     for(i = inicio_x ; i < fim_x ; i++)
@@ -404,8 +361,12 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
     }
 
     //Forkar aqui!
+    int mem_id = shmget(IPC_PRIVATE, tamimage * sizeof(uchar), SHM_R | SHM_W);
+
     pid_t *pid = (pid_t *) malloc(num_retangulos * sizeof(pid_t));
+    uchar *imagepointer;
     uchar *imagetemp;
+
     for(int i = 0; i < num_retangulos; i++){
         pid[i] = fork();
         if(pid[i] < 0){
@@ -413,17 +374,21 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
             exit(1);
         } else if(pid[i] == 0) {
             printf("Criacao do processo %d\n", i);
+
+            imagepointer = (uchar *) shmat(mem_id, NULL, 0);
+
+            if ((void *) -1 == (void *)imagepointer){
+	            perror("Crianca nao conseguiu atachar\n"); 
+	            exit(1);
+	        }
+
             imagetemp = raytracerLoop(*vl, ret[i].inicio_x, ret[i].inicio_y, ret[i].fim_x, ret[i].fim_y);
 
-            char filename[50] = "";
-            char filenum[5];
-
-            sprintf(filenum, "%d", i);
-            strcpy(filename, filenamebase);
-            strcat(filename, filenum);
-            strcat(filename, filenameext);
-
-            save_uchar(filename, &imagetemp, tamimage);
+            for(int j = 0; j < tamimage; j++){
+            	if(imagetemp[j] != 0){
+            		imagepointer[j] = imagetemp[j];
+            	}
+            }
 
             exit(1);
         }
@@ -431,24 +396,10 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
 
     while(wait(NULL) > 0);
 
+    imagepointer = (uchar *) shmat(mem_id, NULL, 0);
+
     for(int i = 0; i < tamimage; i++){
-    	vl->image[i] = 0;
-    }
-
-    for(int i = 0; i < num_retangulos; i++){
-        char filename[50] = "";
-        char filenum[5];
-
-        sprintf(filenum, "%d", i);
-        strcpy(filename, filenamebase);
-        strcat(filename, filenum);
-        strcat(filename, filenameext);
-
-        read_image_file(&(vl->image), tamimage, filename);
-
-        if(remove(filename)){
-        	printf("Problema ao remover o arquivo temporario: %s.\n", filename);
-        }
+    	vl->image[i] = imagepointer[i];
     }
 }
 
@@ -546,30 +497,6 @@ int main(int argc, char ** argv)
     }
 
     comecaraytracerloopcoordenadas(&vl, divisoes[0], divisoes[1]);
-
-    // int tamPieceLinear = c.view.width*c.view.height/DIV;
-    // uchar* imagePiece = (uchar *) malloc(tamPieceLinear*sizeof(uchar));
-    // uchar * aux = imagePiece;
-
-    // int fimPiece = 0;
-    // int inicioPiece;
-    // int cont;
-
-    // for(int y = 0; y < DIV; y++)
-    // {
-    //     int inicioPiece = fimPiece;
-    //     int fimPiece = inicioPiece + tamPieceLinear;
-        
-    //     *(imagePiece) = raytracerLoop(vl,y*c.view.height/DIV);
-    //     cont = 0;
-    //     imagePiece = aux;
-    //     for(int i=inicioPiece; i<fimPiece;i++,cont++){
-    //         *(image + i) = *(imagePiece + cont);
-    //     }
-
-    //     imagePiece = aux;
-    // }
-    
 
     //*image = raytracerLoop(vl,0,c.view.height);
    
