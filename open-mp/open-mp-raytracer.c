@@ -354,7 +354,7 @@ int main(int argc, char ** argv)
 
 	    //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
-	    if(save_bmp("output_rtOpenMp.bmp",&c,image) != 0)
+	    if(save_bmp("output_rt_open_mp.bmp",&c,image) != 0)
 	    {
 		fprintf(stderr,"Cannot write image 'output.bmp'.\n");
 		return 0;
