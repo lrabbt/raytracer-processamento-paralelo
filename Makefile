@@ -1,4 +1,4 @@
-all: bin/processo-raytracer bin/open-mp-raytracer
+all: bin/processo-raytracer bin/open-mp-raytracer bin/threads-raytracer
 
 bin:
 	mkdir bin
@@ -8,6 +8,10 @@ bin/processo-raytracer: processo/processo-raytracer.c bin
 
 bin/open-mp-raytracer: open-mp/open-mp-raytracer.c bin
 	gcc open-mp/open-mp-raytracer.c -lm -o bin/open-mp-raytracer
+
+bin/threads-raytracer: threads/threads-raytracer.c bin
+	gcc threads/threads-raytracer.c -lm -pthread -o bin/threads-raytracer
+
 clean:
 
 mrproper: clean
