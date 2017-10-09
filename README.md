@@ -11,4 +11,4 @@ Os arquivos .c estão nas pastas:
 * open-mp
 * threads
 
-	Ao utilizar "make", os executáveis serão criados na pasta *bin*.
+Ao utilizar "make", os executáveis serão criados na pasta *bin*.
