@@ -341,9 +341,6 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
     int num_retangulos = num_divisoes_x * num_divisoes_y;
     retangulo *ret = (retangulo *) malloc(num_retangulos * sizeof(retangulo));
 
-    char filenamebase[50] = "output_rt";
-    char filenameext[5] = ".tmp";
-
     for(int i = 0; i < num_divisoes_x; i++){
         for(int j = 0; j < num_divisoes_y; j++){
             ret[i * num_divisoes_y + j].inicio_x = i * divisao_horizontal;
@@ -502,7 +499,7 @@ int main(int argc, char ** argv)
    
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
-    if(save_bmp("output_rt.bmp", &(vl.c), vl.image) != 0)
+    if(save_bmp("output_rt_processos.bmp", &(vl.c), vl.image) != 0)
     {
         fprintf(stderr,"Cannot write image 'output.bmp'.\n");
         return 0;
