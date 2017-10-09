@@ -11,4 +11,5 @@ bin/open-mp-raytracer: open-mp/open-mp-raytracer.c bin
 clean:
 
 mrproper: clean
-	rm -rf bin/*
+	rm -rf bin
+	rm -rf *.bmp
