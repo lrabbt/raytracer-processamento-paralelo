@@ -399,7 +399,7 @@ int main(int argc, char ** argv)
 
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
-	if(save_bmp("output_rt_Thread.bmp",&c,image) != 0)
+	if(save_bmp("output_rt_thread.bmp",&c,image) != 0)
 	{
 	    fprintf(stderr,"Cannot write image 'output.bmp'.\n");
 	    return 0;
