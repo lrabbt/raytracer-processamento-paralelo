@@ -301,7 +301,7 @@ void raytracerLoopref(vFLoop *vl, int inicio_x, int inicio_y, int fim_x, int fim
             vl->image[ 3* (i * vl->c.view.height + j) + 2] = floatToIntColor(b);            
         }
     }
-    printf("PASSO AQ DENTRO\n");
+    // printf("PASSO AQ DENTRO %d %d\n",DIV, vl->coordY);
 }
 
 uchar *raytracerLoop(vFLoop vl, int inicio_x, int inicio_y, int fim_x, int fim_y){
@@ -373,7 +373,7 @@ void comecaraytracerloopcoordenadas(vFLoop *vl, int num_divisoes_x, int num_divi
             fprintf(stderr, "Erro na criacao da thread %d\n", i);
             exit(1);
         } else if(pid[i] == 0) {
-            printf("Criacao do processo %d\n", i);
+            // printf("Criacao do processo %d\n", i);
 
             imagepointer = (uchar *) shmat(mem_id, NULL, 0);
 
