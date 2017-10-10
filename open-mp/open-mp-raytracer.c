@@ -316,7 +316,8 @@ int main(int argc, char ** argv)
     
     samples = 8;
     rcp_samples = 1.0 / (float)samples;
-			
+    /*//Define o número de threads
+    omp_set_num_threads(12)*/	
     #pragma omp parallel for
   
 	    for( i = 0 ; i < c.view.width ; i++)
