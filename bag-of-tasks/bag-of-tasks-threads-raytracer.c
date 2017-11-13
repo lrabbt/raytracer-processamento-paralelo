@@ -186,6 +186,8 @@ struct varFromLoop{ //Estrutura com os parametros usados na função executada p
 	int coordY;
 }typedef vFLoop;
 
+pthread_mutex_t image_mutex;
+
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
@@ -294,10 +296,14 @@ void * raytracerLoop(void *args)
 		    //ray rr = get_primary_ray(&c, i, j, samples); 
 		    //color clr = trace(c,&rr,0);
 
+		    //Bloqueia endereço de memoria
+		    pthread_mutex_lock(&image_mutex);
 		    //red green blue color components
 		    image[ 3* (i * vl -> c.view.height + j) + 0] = floatToIntColor(r);
 		    image[ 3* (i * vl -> c.view.height + j) + 1] = floatToIntColor(g);
 		    image[ 3* (i * vl -> c.view.height + j) + 2] = floatToIntColor(b);
+		    //Desbloqueia endereço de memoria
+		    pthread_mutex_unlock(&image_mutex);
 		}
 	}
 	//printf("PASSO AQ DENTRO %d %d\n",DIV, vl->coordY);
@@ -376,6 +382,13 @@ int main(int argc, char ** argv)
 		args[y]. coordY = y*c.view.height/DIV;
 	} 
 
+	//Inicia mutex
+	if(pthread_mutex_init(&image_mutex, NULL))
+    {
+        printf("\nInicializacao do mutex falhou\n");
+        return 1;
+    }
+
 	for( y = 0; y < DIV; y++)
 	{
 		rc = pthread_create(&threads[y], NULL, raytracerLoop,(void*)&args[y]);
@@ -384,6 +397,7 @@ int main(int argc, char ** argv)
 		  exit(-1);
 		}
 	}
+
 	int status;
 	for(y=0; y < DIV; y++)
 	{
@@ -396,6 +410,9 @@ int main(int argc, char ** argv)
 		}
 		//printf(" [%d->%d]\n",y,status);
  	}
+
+ 	//Destroi mutex
+	pthread_mutex_destroy(&image_mutex);
 
     //printPrimaryRays(rays,c.view.width*c.view.height); //for testing only
 
