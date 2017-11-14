@@ -39,8 +39,8 @@ Grupo: Breno Brandão, Bruno Fontes, Ingryd Moura, Leonídia Barreto
 #define DIVY 2
 #define RAY_MAG 1000
 
-//Número padrão de threads
-#define DIV 20
+//Número de threads
+#define DIV 8
 
 
 
@@ -188,8 +188,6 @@ struct varFromLoop{ //Estrutura com os parametros usados na função executada p
 
 pthread_mutex_t image_mutex;
 
-int numero_de_threads;
-
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
@@ -277,7 +275,7 @@ void * raytracerLoop(void *args)
 
 	for(i = 0 ; i < vl->c.view.width ; i++)
 	{
-		for(j = vl->coordY ; j < vl->coordY + vl->c.view.height/numero_de_threads ; j++)
+		for(j = vl->coordY ; j < vl->coordY + vl->c.view.height/DIV ; j++)
 		{
 		    float r, g, b;
 		    r = g = b = 0.0;
@@ -308,7 +306,7 @@ void * raytracerLoop(void *args)
 		    pthread_mutex_unlock(&image_mutex);
 		}
 	}
-	//printf("PASSO AQ DENTRO %d %d\n",numero_de_threads, vl->coordY);
+	//printf("PASSO AQ DENTRO %d %d\n",DIV, vl->coordY);
 	pthread_exit((void *)0);
 }
 
@@ -325,12 +323,6 @@ int main(int argc, char ** argv)
     //char fname[20];
     //ray * rays;
     //color cor;
-
-    if(argc == 2){
-    	numero_de_threads = atoi(argv[1]);
-    } else {
-    	numero_de_threads = DIV;
-    }
 
     //srand ( time(NULL) );
 
@@ -376,18 +368,18 @@ int main(int argc, char ** argv)
 
     //-------------------------------------------ray tracing loop-----------------------------------------------------------
 	
-	pthread_t threads[numero_de_threads];
+	pthread_t threads[DIV];
     int rc;
 
 	int y;
-	vFLoop args[numero_de_threads] ;
+	vFLoop args[DIV] ;
 
-	for(y = 0;y<numero_de_threads;y++){
+	for(y = 0;y<DIV;y++){
 		args[y] . samples = 8;
 		args[y] . s = 0;
 		args[y] . rcp_samples = 1.0 / (float)args[y]. samples;
 		args[y] . c = c;
-		args[y]. coordY = y*c.view.height/numero_de_threads;
+		args[y]. coordY = y*c.view.height/DIV;
 	} 
 
 	//Inicia mutex
@@ -397,7 +389,7 @@ int main(int argc, char ** argv)
         return 1;
     }
 
-	for( y = 0; y < numero_de_threads; y++)
+	for( y = 0; y < DIV; y++)
 	{
 		rc = pthread_create(&threads[y], NULL, raytracerLoop,(void*)&args[y]);
 		if (rc)
@@ -407,7 +399,7 @@ int main(int argc, char ** argv)
 	}
 
 	int status;
-	for(y=0; y < numero_de_threads; y++)
+	for(y=0; y < DIV; y++)
 	{
 		rc = pthread_join(threads[y],(void **)&status);
 
